@@ -2,11 +2,14 @@
 set -eu
 
 if [ "$#" -ne 3 ]; then
-    printf '用法：sh pack-r3-engine.sh <14.0.0-r3.N> <固定参考 nupkg 绝对路径> <新输出目录>\n' >&2
+    printf '用法：sh pack-r3-engine.sh <14.0.0-r3.N | --r4> <固定参考 nupkg 绝对路径> <新输出目录>\n' >&2
     exit 2
 fi
 version=$1
-if ! printf '%s\n' "$version" | grep -Eq '^14[.]0[.]0-r3[.][1-9][0-9]*$'; then
+if [ "$version" = --r4 ]; then
+    version=14.0.0
+    export DuR4Pack=true
+elif ! printf '%s\n' "$version" | grep -Eq '^14[.]0[.]0-r3[.][1-9][0-9]*$'; then
     printf '候选版本格式错误 %s\n' "$version" >&2
     exit 2
 fi
@@ -17,6 +20,15 @@ esac
 scripts=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 project=$(dirname -- "$scripts")/AutoMapper.csproj
 test -f "$reference"
+if [ "${DuR4Pack:-}" = true ]; then
+    source=$(CDPATH='' cd -- "$scripts/../../.." && pwd)
+    if [ -n "$(git -C "$source" status --porcelain=v1 --untracked-files=all)" ]; then
+        printf 'R4 需要干净的生产提交。\n' >&2
+        exit 1
+    fi
+    RepositoryCommit=$(git -C "$source" rev-parse HEAD)
+    export RepositoryCommit
+fi
 mkdir "$3"
 output=$(CDPATH='' cd -- "$3" && pwd)
 trap 'printf "%s\n" "$?" > "$output/exit-code.txt"' EXIT
@@ -31,10 +43,16 @@ export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_UI_LANGUAGE=en M
 export DOTNET_ROLL_FORWARD=Major
 dotnet_command=${API_COMPAT_DOTNET:-dotnet}
 mkdir "$output/feed" "$output/symbols"
+if [ "${DuR4Pack:-}" = true ]; then
+    printf '%s\n' "$RepositoryCommit" > "$output/source-commit.txt"
+    set -- "-p:ArtifactsPath=$output/apicompat/artifacts" "-p:RepositoryCommit=$RepositoryCommit"
+else
+    set --
+fi
 (
     set -x
     "$dotnet_command" pack "$project" -c Release --no-build --no-restore \
-        "-p:MinVerVersionOverride=$version" -o "$output/feed" "-bl:$output/pack.binlog"
+        "-p:MinVerVersionOverride=$version" -o "$output/feed" "-bl:$output/pack.binlog" "$@"
 ) > "$output/pack.log" 2>&1
 mv "$output/feed/Du.AutoMapper.$version.snupkg" "$output/symbols/"
 shasum -a 256 "$output/feed/Du.AutoMapper.$version.nupkg" "$output/symbols/Du.AutoMapper.$version.snupkg" > "$output/packages.sha256"

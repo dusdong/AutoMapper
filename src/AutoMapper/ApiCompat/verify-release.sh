@@ -55,17 +55,26 @@ cat > "$evidence/NuGet.Config" <<'XML'
 </configuration>
 XML
 
+if [ "${DuR4Pack:-}" = true ]; then
+    set -- "-p:ArtifactsPath=$evidence/artifacts" "-p:RepositoryCommit=$RepositoryCommit"
+    intermediate="$evidence/artifacts/obj/AutoMapper/release"
+    binaries="$evidence/artifacts/bin/AutoMapper/release"
+else
+    set --
+    intermediate="$project_directory/obj/Release/net8.0"
+    binaries="$project_directory/bin/Release/net8.0"
+fi
 (
     set -x
     "$dotnet_command" restore "$project_directory/AutoMapper.csproj" --configfile "$evidence/NuGet.Config" --no-http-cache --force \
-        -p:Configuration=Release -p:RestoreFallbackFolders= --verbosity normal
+        -p:Configuration=Release -p:RestoreFallbackFolders= --verbosity normal "$@"
 ) > "$evidence/restore.log" 2>&1
 (
     set -x
     "$dotnet_command" build "$project_directory/AutoMapper.csproj" -t:Rebuild -c Release --no-restore --disable-build-servers \
         -p:UseSharedCompilation=false -p:RunApiCompat=true -p:RunApiCompatForSrc=true \
         "-p:MinVerVersionOverride=$version" "-p:ApiCompatReferencePackage=$archive" \
-        --verbosity diagnostic "-bl:$evidence/build.binlog"
+        --verbosity diagnostic "-bl:$evidence/build.binlog" "$@"
 ) > "$evidence/build.log" 2>&1
 
 comparison="$evidence/comparison.log"
@@ -79,6 +88,6 @@ comparison="$evidence/comparison.log"
     exit 1
 }
 
-cp "$project_directory/obj/Release/net8.0/apicompat.rsp" "$evidence/"
-shasum -a 256 "$project_directory/bin/Release/net8.0/AutoMapper.dll" > "$evidence/release-sha256.txt"
+cp "$intermediate/apicompat.rsp" "$evidence/"
+shasum -a 256 "$binaries/AutoMapper.dll" > "$evidence/release-sha256.txt"
 cat "$comparison"

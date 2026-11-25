@@ -30,13 +30,21 @@
     <AdditionalApiCompatOptions>--exclude-non-browsable --exclude-compiler-generated</AdditionalApiCompatOptions>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(DuR4Pack)' == 'true'">
+    <PackageProjectUrl>https://github.com/dusdong/AutoMapper</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/dusdong/AutoMapper.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <ResolvedMatchingContract Condition=" '$(OS)' == 'Windows_NT' " Include="..\LastMajorVersionBinary\AutoMapper.dll" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\icon.png" Pack="true" PackagePath="" Visible="False" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="False" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="False" Condition="'$(DuR4Pack)' != 'true'" />
+    <None Include="ApiCompat\README.package.md" Pack="true" PackagePath="README.md" Visible="False" Condition="'$(DuR4Pack)' == 'true'" />
     <None Condition="'$(DuAutoMapperCandidate)' == 'true'" Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="False" />
   </ItemGroup>
 
