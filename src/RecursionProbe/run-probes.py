@@ -4,18 +4,25 @@ from pathlib import Path
 import subprocess
 
 
+DEFAULT_SCENARIOS = ("reference-graph", "constructor-depth", "runtime-dispatch")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dotnet", type=Path, required=True)
     parser.add_argument("--program", type=Path, required=True)
     parser.add_argument("--dll-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scenario", choices=(*DEFAULT_SCENARIOS, "application-exception"))
     args = parser.parse_args()
     args.output.mkdir()
     output = args.output.resolve()
     report = []
-    for scenario in ("reference-graph", "constructor-depth", "runtime-dispatch"):
+    scenarios = (args.scenario,) if args.scenario else DEFAULT_SCENARIOS
+    for scenario in scenarios:
         command = [str(args.dotnet.resolve()), str(args.program.resolve()), scenario]
+        if scenario == "application-exception":
+            command.append(args.dll_sha256)
         entry = {"scenario": scenario, "command": command, "cwd": str(output), "timeoutSeconds": 30}
         with (output / f"{scenario}.stdout").open("wb") as stdout, (output / f"{scenario}.stderr").open("wb") as stderr:
             try:

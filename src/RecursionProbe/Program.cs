@@ -5,12 +5,14 @@ using System.Text.Json;
 using AutoMapper;
 
 var engine = typeof(Mapper).Assembly;
-var scenario = args.Single();
-var result = scenario switch
+var scenario = args.First();
+var sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(engine.Location))).ToLowerInvariant();
+var result = (scenario, args.Length) switch
 {
-    "reference-graph" => ReferenceGraph(),
-    "constructor-depth" => ConstructorDepth(),
-    "runtime-dispatch" => RuntimeDispatch(),
+    ("reference-graph", 1) => ReferenceGraph(),
+    ("constructor-depth", 1) => ConstructorDepth(),
+    ("runtime-dispatch", 1) => RuntimeDispatch(),
+    ("application-exception", 2) => ApplicationExceptionProbe.Run(sha256, args[1]),
     _ => throw new ArgumentException(scenario),
 };
 Console.WriteLine(JsonSerializer.Serialize(new
@@ -21,7 +23,7 @@ Console.WriteLine(JsonSerializer.Serialize(new
     architecture = RuntimeInformation.ProcessArchitecture.ToString(),
     assembly = engine.FullName,
     location = engine.Location,
-    sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(engine.Location))).ToLowerInvariant(),
+    sha256,
 }));
 
 static object ReferenceGraph()
