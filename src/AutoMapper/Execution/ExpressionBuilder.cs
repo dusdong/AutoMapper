@@ -170,8 +170,8 @@ public static class ExpressionBuilder
         var mapMethod = ContextMapMethod.MakeGenericMethod(typePair.SourceType, typePair.DestinationType);
         return Expression.Call(ContextParameter, mapMethod, sourceParameter, destinationParameter, Constant(memberMap, typeof(MemberMap)));
     }
-    public static Expression CheckContext(TypeMap typeMap) => typeMap.PreserveReferences || typeMap.MaxDepth > 0 ? CheckContextCall : null;
-    public static Expression OverMaxDepth(TypeMap typeMap) => typeMap?.MaxDepth > 0 ? 
+    public static Expression CheckContext(TypeMap typeMap) => typeMap.PreserveReferences || typeMap.RuntimeMaxDepth > 0 ? CheckContextCall : null;
+    public static Expression OverMaxDepth(TypeMap typeMap) => typeMap?.RuntimeMaxDepth > 0 ?
         Expression.Call(ContextParameter, OverTypeDepthMethod, Constant(typeMap)) : null;
     public static Expression NullSubstitute(this MemberMap memberMap, Expression sourceExpression) =>
         Coalesce(sourceExpression, ToType(Constant(memberMap.NullSubstitute), sourceExpression.Type));

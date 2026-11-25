@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 namespace AutoMapper;
 
 using IObjectMappingOperationOptions = IMappingOperationOptions<object, object>;
@@ -192,6 +193,8 @@ public sealed class Mapper : IMapper, IInternalRuntimeMapper
     private TDestination MapCore<TSource, TDestination>(
         TSource source, TDestination destination, ResolutionContext context, Type sourceType = null, Type destinationType = null, MemberMap memberMap = null)
     {
+        // 动态成员和转换器可在执行期进入其他映射，无法仅靠类型图判断剩余栈空间。
+        RuntimeHelpers.EnsureSufficientExecutionStack();
         TypePair requestedTypes = new(typeof(TSource), typeof(TDestination));
         TypePair runtimeTypes = new(source?.GetType() ?? sourceType ?? typeof(TSource), destination?.GetType() ?? destinationType ?? typeof(TDestination));
         MapRequest mapRequest = new(requestedTypes, runtimeTypes, memberMap);

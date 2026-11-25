@@ -85,7 +85,7 @@ public sealed class ResolutionContext : IInternalRuntimeMapper
             TypeDepth[typeMap.Types] = 1;
             depth = 1;
         }
-        return depth > typeMap.MaxDepth;
+        return depth > typeMap.RuntimeMaxDepth;
     }
     internal bool IsDefault => this == _mapper.DefaultContext;
     Func<Type, object> IInternalRuntimeMapper.ServiceCtor => ServiceCtor();

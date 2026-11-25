@@ -93,6 +93,14 @@ public sealed class TypeMap
     public IReadOnlyCollection<ValueTransformerConfiguration> ValueTransformers => (_details?.ValueTransformerConfigs).NullCheck();
     public bool PreserveReferences { get => (_details?.PreserveReferences).GetValueOrDefault(); set => Details.PreserveReferences = value; }
     public int MaxDepth { get => (_details?.MaxDepth).GetValueOrDefault(); set => Details.MaxDepth = value; }
+    internal int RuntimeMaxDepth => MaxDepth > 0 ? MaxDepth : (_details?.RuntimeMaxDepth).GetValueOrDefault();
+    internal void LimitRuntimeDepth(int depth)
+    {
+        if (MaxDepth <= 0 && depth > 0 && (RuntimeMaxDepth == 0 || depth < RuntimeMaxDepth))
+        {
+            Details.RuntimeMaxDepth = depth;
+        }
+    }
     public bool DisableConstructorValidation { get => (_details?.DisableConstructorValidation).GetValueOrDefault(); set => Details.DisableConstructorValidation = value; }
     public IReadOnlyCollection<PropertyMap> PropertyMaps => _propertyMaps.NullCheck();
     public IReadOnlyCollection<PathMap> PathMaps => (_details?.PathMaps).NullCheck();
@@ -287,6 +295,7 @@ public sealed class TypeMap
         public string[] IncludedMembersNames;
         public bool DisableConstructorValidation;
         public int MaxDepth;
+        public int RuntimeMaxDepth;
         public bool IncludeAllDerivedTypes;
         public LambdaExpression CustomCtorFunction;
         public MemberList ConfiguredMemberList;
@@ -454,6 +463,7 @@ public sealed class TypeMap
         }
         private void ApplyInheritedTypeMap(TypeMap inheritedTypeMap, TypeMap thisMap)
         {
+            thisMap.LimitRuntimeDepth(inheritedTypeMap.RuntimeMaxDepth);
             if (inheritedTypeMap._propertyMaps != null)
             {
                 ApplyInheritedPropertyMaps(inheritedTypeMap, thisMap);

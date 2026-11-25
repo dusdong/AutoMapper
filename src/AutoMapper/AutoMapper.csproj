@@ -9,14 +9,16 @@
     <AssemblyOriginatorKeyFile>..\..\AutoMapper.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
-    <PackageId>AutoMapper</PackageId>
+    <PackageId Condition="'$(DuAutoMapperCandidate)' != 'true'">AutoMapper</PackageId>
+    <PackageId Condition="'$(DuAutoMapperCandidate)' == 'true'">Du.AutoMapper</PackageId>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://automapper.org</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <MinVerDefaultPreReleaseIdentifiers>preview.0</MinVerDefaultPreReleaseIdentifiers>
     <MinVerTagPrefix>v</MinVerTagPrefix>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression Condition="'$(DuAutoMapperCandidate)' != 'true'">MIT</PackageLicenseExpression>
+    <PackageLicenseFile Condition="'$(DuAutoMapperCandidate)' == 'true'">LICENSE.txt</PackageLicenseFile>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -24,17 +26,18 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
-    <BaselineAllAPICompatError>true</BaselineAllAPICompatError>
+    <BaselineAllAPICompatError Condition=" '$(OS)' == 'Windows_NT' ">true</BaselineAllAPICompatError>
     <AdditionalApiCompatOptions>--exclude-non-browsable --exclude-compiler-generated</AdditionalApiCompatOptions>
   </PropertyGroup>
 
   <ItemGroup>
-    <ResolvedMatchingContract Include="..\LastMajorVersionBinary\AutoMapper.dll" />
+    <ResolvedMatchingContract Condition=" '$(OS)' == 'Windows_NT' " Include="..\LastMajorVersionBinary\AutoMapper.dll" />
   </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\icon.png" Pack="true" PackagePath="" Visible="False" />
     <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="False" />
+    <None Condition="'$(DuAutoMapperCandidate)' == 'true'" Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="False" />
   </ItemGroup>
 
   <ItemGroup>
@@ -44,9 +47,22 @@
     <PackageReference Include="Microsoft.DotNet.ApiCompat" Version="7.0.0-beta.22074.1" PrivateAssets="All" />  
   </ItemGroup>
 
-  <Target Name="PreBuild" AfterTargets="GetAssemblyVersion">
-    <Exec Condition=" '$(OS)' == 'Windows_NT' " Command="powershell -ExecutionPolicy Unrestricted -File &quot;$(ProjectDir)ApiCompat\PreBuild.ps1&quot; -version $(Version)" />
-    <Exec Condition=" '$(OS)' != 'Windows_NT' " Command="&quot;$(ProjectDir)ApiCompat/PreBuild.sh&quot; $(Version)" />
+  <Target Name="PreBuild" AfterTargets="GetAssemblyVersion" Condition=" '$(OS)' == 'Windows_NT' ">
+    <Exec Command="powershell -ExecutionPolicy Unrestricted -File &quot;$(ProjectDir)ApiCompat\PreBuild.ps1&quot; -version $(Version)" />
+  </Target>
+
+  <Target Name="PrepareUnixApiCompatReference" BeforeTargets="ValidateApiCompatForSrc"
+          Condition=" '$(OS)' != 'Windows_NT' and '$(RunApiCompat)' == 'true' and '$(RunApiCompatForSrc)' == 'true' ">
+    <PropertyGroup>
+      <_ApiCompatReferencePath>$([System.IO.Path]::GetFullPath('$(IntermediateOutputPath)apicompat-reference', '$(MSBuildProjectDirectory)'))</_ApiCompatReferencePath>
+      <_ApiCompatHost Condition="'$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</_ApiCompatHost>
+      <_ApiCompatHost Condition="'$(_ApiCompatHost)' == ''">$(DotNetTool)</_ApiCompatHost>
+      <_ApiCompatCommand>&quot;$(_ApiCompatHost)&quot; exec --roll-forward Major &quot;$(_ApiCompatPath)&quot;</_ApiCompatCommand>
+    </PropertyGroup>
+    <Exec Command="/bin/sh &quot;$(ProjectDir)ApiCompat/PreBuild.sh&quot; &quot;$(_ApiCompatReferencePath)&quot; &quot;$(ApiCompatReferencePackage)&quot;" />
+    <ItemGroup>
+      <ResolvedMatchingContract Include="$(_ApiCompatReferencePath)/AutoMapper.dll" />
+    </ItemGroup>
   </Target>
   <ItemGroup>
     <Using Include="System.Linq.Expressions.Expression" Static="true" />

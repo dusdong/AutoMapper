@@ -1,6 +1,7 @@
 namespace AutoMapper.Execution;
 public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap typeMap)
 {
+    const int DefaultRecursiveDepth = 64;
     static readonly MethodInfo MappingError = typeof(TypeMapPlanBuilder).GetStaticMethod(nameof(MemberMappingError));
     static readonly MethodInfo IncTypeDepthInfo = typeof(ResolutionContext).GetInstanceMethod(nameof(ResolutionContext.IncrementTypeDepth));
     static readonly MethodInfo DecTypeDepthInfo = typeof(ResolutionContext).GetInstanceMethod(nameof(ResolutionContext.DecrementTypeDepth));
@@ -29,6 +30,10 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
         var customExpression = _typeMap.TypeConverter?.GetExpression(_configuration, parameters);
         if (customExpression != null)
         {
+            if (_typeMap.RuntimeMaxDepth > 0)
+            {
+                customExpression = Block(CheckContext(_typeMap), EnforceMaxDepth(customExpression));
+            }
             return Lambda(customExpression, parameters);
         }
         _variables ??= [];
@@ -91,7 +96,7 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
                 memberMap.Inline = false;
                 TraceInline(typeMap, memberMap);
             }
-            if (memberTypeMap.PreserveReferences || memberTypeMap.MapExpression != null)
+            if (memberTypeMap.MapExpression != null || (memberTypeMap.PreserveReferences && memberTypeMap.RuntimeMaxDepth > 0))
             {
                 continue;
             }
@@ -105,6 +110,7 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
                     }
                     continue;
                 }
+                memberTypeMap.LimitRuntimeDepth(DefaultRecursiveDepth);
                 memberTypeMap.PreserveReferences = true;
                 Trace(typeMap, memberTypeMap, memberMap);
                 if (memberMap.Inline)
@@ -117,6 +123,7 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
                     derivedTypeMap.PreserveReferences = true;
                     Trace(typeMap, derivedTypeMap, memberMap);
                 }
+                // 封闭泛型可能在解析成员时即生成映射计划，继续遍历以识别环中的其他引用缓存入口。
             }
             CheckForCycles(configuration, memberTypeMap, typeMapsPath);
         }
@@ -158,21 +165,10 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
     private Expression CreateAssignmentFunc(Expression createDestination)
     {
         List<Expression> actions = [createDestination];
-        Expression typeMapExpression = null;
-        var hasMaxDepth = _typeMap.MaxDepth > 0;
-        if (hasMaxDepth)
-        {
-            typeMapExpression = Constant(_typeMap);
-            actions.Add(Call(ContextParameter, IncTypeDepthInfo, typeMapExpression));
-        }
         AddBeforeMap(actions);
         AddPropertyMaps(actions);
         AddPathMaps(actions);
         AddAfterMap(actions);
-        if (hasMaxDepth)
-        {
-            actions.Add(Call(ContextParameter, DecTypeDepthInfo, typeMapExpression));
-        }
         actions.Add(_destination);
         return Block(actions);
     }
@@ -259,15 +255,20 @@ public ref struct TypeMapPlanBuilder(IGlobalConfiguration configuration, TypeMap
             _ => null,
         };
     }
-    private Expression CreateMapperFunc(Expression assignmentFunc)
+    private Expression CreateMapperFunc(Expression assignmentFunc) => CheckReferencesCache(EnforceMaxDepth(assignmentFunc));
+    private Expression EnforceMaxDepth(Expression map)
     {
-        var mapperFunc = assignmentFunc;
         var overMaxDepth = OverMaxDepth(_typeMap);
-        if (overMaxDepth != null)
+        if (overMaxDepth == null)
         {
-            mapperFunc = Condition(overMaxDepth, _configuration.Default(DestinationType), mapperFunc);
+            return map;
         }
-        return CheckReferencesCache(mapperFunc);
+        var typeMapExpression = Constant(_typeMap);
+        // 构造目标和所有映射回调共用同一个深度范围，异常退出时也要归还计数。
+        var countedMap = Block(
+            Call(ContextParameter, IncTypeDepthInfo, typeMapExpression),
+            TryFinally(map, Call(ContextParameter, DecTypeDepthInfo, typeMapExpression)));
+        return Condition(overMaxDepth, _configuration.Default(map.Type), countedMap);
     }
     private Expression CheckReferencesCache(Expression valueBuilder)
     {
