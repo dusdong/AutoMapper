@@ -135,6 +135,11 @@ public sealed class CollectionMapper : IObjectMapper
             }
             Expression CheckContext()
             {
+                var memberContext = memberMap?.TypeMap is { } memberTypeMap ? ExpressionBuilder.CheckContext(memberTypeMap) : null;
+                if (memberContext != null)
+                {
+                    return memberContext;
+                }
                 var elementTypeMap = configuration.ResolveTypeMap(sourceElementType, destinationElementType);
                 return elementTypeMap == null ? null : ExpressionBuilder.CheckContext(elementTypeMap);
             }

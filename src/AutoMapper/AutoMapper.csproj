@@ -30,7 +30,7 @@
     <AdditionalApiCompatOptions>--exclude-non-browsable --exclude-compiler-generated</AdditionalApiCompatOptions>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(DuR4Pack)' == 'true'">
+  <PropertyGroup Condition="'$(DuR4Pack)' == 'true' or '$(DuR5Pack)' == 'true'">
     <PackageProjectUrl>https://github.com/dusdong/AutoMapper</PackageProjectUrl>
     <RepositoryUrl>https://github.com/dusdong/AutoMapper.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -43,8 +43,9 @@
 
   <ItemGroup>
     <None Include="..\..\icon.png" Pack="true" PackagePath="" Visible="False" />
-    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="False" Condition="'$(DuR4Pack)' != 'true'" />
-    <None Include="ApiCompat\README.package.md" Pack="true" PackagePath="README.md" Visible="False" Condition="'$(DuR4Pack)' == 'true'" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="" Visible="False" Condition="'$(DuR4Pack)' != 'true' and '$(DuR5Pack)' != 'true'" />
+    <None Include="ApiCompat\README.package.md" Pack="true" PackagePath="README.md" Visible="False" Condition="'$(DuR4Pack)' == 'true' and '$(DuR5Pack)' != 'true'" />
+    <None Include="ApiCompat\README.r5-package.md" Pack="true" PackagePath="README.md" Visible="False" Condition="'$(DuR5Pack)' == 'true'" />
     <None Condition="'$(DuAutoMapperCandidate)' == 'true'" Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="False" />
   </ItemGroup>
 

@@ -55,12 +55,15 @@ cat > "$evidence/NuGet.Config" <<'XML'
 </configuration>
 XML
 
-if [ "${DuR4Pack:-}" = true ]; then
-    set -- "-p:ArtifactsPath=$evidence/artifacts" "-p:RepositoryCommit=$RepositoryCommit"
+set --
+if [ "${DuR4Pack:-}" = true ] || [ "${DuR5Pack:-}" = true ]; then
+    set -- "-p:RepositoryCommit=$RepositoryCommit"
+fi
+if [ "$#" -ne 0 ] || [ "${API_COMPAT_ISOLATE_BUILD:-}" = true ]; then
+    set -- "$@" "-p:ArtifactsPath=$evidence/artifacts"
     intermediate="$evidence/artifacts/obj/AutoMapper/release"
     binaries="$evidence/artifacts/bin/AutoMapper/release"
 else
-    set --
     intermediate="$project_directory/obj/Release/net8.0"
     binaries="$project_directory/bin/Release/net8.0"
 fi
